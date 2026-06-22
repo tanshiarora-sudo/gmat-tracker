@@ -229,23 +229,23 @@
   // is expected, and any past shortfall is carried onto today (capped so it stays humane).
   function dailyTarget(key) {
     key = key || fmtKey(today());
-    let raw = 0; const bySec = {};
+    const rawByKey = {}; let raw = 0;
     for (const sec of SECTIONS) {
       const s = sectionStats(sec.key);
-      if (s.topics > 0 && s.remaining > 0) { bySec[sec.key] = s.pace; raw += s.pace; }
+      if (s.topics > 0 && s.remaining > 0) { rawByKey[sec.key] = Math.max(1, s.pace); raw += rawByKey[sec.key]; }
     }
     const dg = S.settings.dailyGoal || 15;
     const base = Math.max(dg, raw);
-    if (raw > 0 && base > raw) {
-      let acc = 0; const keys = Object.keys(bySec);
-      keys.forEach((k, i) => { bySec[k] = i === keys.length - 1 ? base - acc : Math.round(bySec[k] * base / raw); acc += bySec[k]; });
-    }
     // rollover deficit = expected (dg per elapsed day) minus what was actually done before today
     const elapsed = Math.max(0, daysBetween(S.settings.planStart, key)); // days strictly before key
     let doneBefore = 0;
     for (const k in S.days) if (k >= S.settings.planStart && k < key) doneBefore += dayTotals(k).q;
     const deficit = Math.max(0, Math.min(45, dg * elapsed - doneBefore));
-    return { total: base + deficit, base, deficit, bySec, raw, focus: focusTopics() };
+    const total = base + deficit;
+    // split the day's total across the active sections, proportional to each section's pace
+    const bySec = {}; const keys = Object.keys(rawByKey); let acc = 0;
+    keys.forEach((k, i) => { bySec[k] = i === keys.length - 1 ? total - acc : Math.max(1, Math.round(rawByKey[k] * total / raw)); acc += bySec[k]; });
+    return { total, base, deficit, bySec, raw, focus: focusTopics() };
   }
   function todayScore(key) {
     const tot = dayTotals(key);

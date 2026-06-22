@@ -6,7 +6,7 @@
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const secMeta = (k) => SECTIONS.find((s) => s.key === k) || SECTIONS[0];
 
-  let UI = { tab: "today", date: fmtKey(today()), mockSort: "date" };
+  let UI = { tab: "today", date: fmtKey(today()), mockSort: "date", planTab: "quant" };
 
   // ---- toast ---------------------------------------------------------------
   let toastTimer = null;
@@ -67,13 +67,18 @@
       </div>`;
     }).join("") : `<div class="empty">No sessions logged ${isToday ? "today" : "this day"} yet.</div>`;
 
-    // topic <option> grouped by section; default-select the current Quant topic (next in order)
-    const curQ = Score.currentTopic("quant");
-    const topicOptions = SECTIONS.map((sec) => {
-      const ts = Score.sectionTopics(sec.key);
-      if (!ts.length) return "";
-      return `<optgroup label="${esc(sec.name)}">` +
-        ts.map((t) => `<option value="${t.id}" ${curQ && curQ.id === t.id ? "selected" : ""}>${esc(t.name)}</option>`).join("") + `</optgroup>`;
+    // 3-tab "Today's plan": one sub-tab per active section, each with its goal + next topic + a log box
+    const activeSecs = SECTIONS.filter((s) => Score.sectionTopics(s.key).length);
+    if (!activeSecs.some((s) => s.key === UI.planTab)) UI.planTab = (activeSecs[0] || { key: "quant" }).key;
+    const planSec = SECTIONS.find((s) => s.key === UI.planTab) || SECTIONS[0];
+    const planSegs = activeSecs.map((s) => `<button class="${s.key === UI.planTab ? "on" : ""}" data-act="plan-tab" data-sec="${s.key}">${esc(s.name)}</button>`).join("");
+    const planCur = Score.currentTopic(planSec.key);
+    const planGoal = tgt.bySec[planSec.key] || 0;
+    const planDone = tot.bySec[planSec.key] || 0;
+    const planPct = planGoal ? Math.min(100, Math.round((planDone / planGoal) * 100)) : (planDone > 0 ? 100 : 0);
+    const planTopicOpts = Score.sectionTopics(planSec.key).map((t) => {
+      const done = Score.topicStats(t).remaining === 0;
+      return `<option value="${t.id}" ${planCur && planCur.id === t.id ? "selected" : ""}>${esc(t.name)}${done ? " ✓" : ""}</option>`;
     }).join("");
 
     const focusTxt = (tgt.focus || []).map((f) => `<b style="color:${f.color}">${esc(f.name)}</b> <span class="muted small">${f.short}</span>`).join(" · ");
@@ -118,14 +123,24 @@
     </div>
 
     <div class="card mt16">
-      <h3>➕ Log a practice session</h3>
-      <p class="sub">Record questions you solved, how many were correct, and time spent.</p>
-      <div class="logform">
-        <select class="input" id="logTopic">${topicOptions || `<option value="">No topics yet — add some in Syllabus</option>`}</select>
-        <label class="lf">Questions<input class="input sm" type="number" min="0" id="logQ" placeholder="0"></label>
-        <label class="lf">Correct<input class="input sm" type="number" min="0" id="logC" placeholder="0"></label>
-        <label class="lf">Minutes<input class="input sm" type="number" min="0" id="logMin" placeholder="0"></label>
-        <button class="btn primary" data-act="add-sess">Add session</button>
+      <h3>🎯 Today's plan</h3>
+      <p class="sub">A goal per section — solve the next topic in order, then log what you actually did.</p>
+      <div class="seg plan-seg">${planSegs}</div>
+      <div class="plan-body">
+        <div class="plan-goal">
+          <div class="plan-goal-num">${planGoal}<span> questions</span></div>
+          <div class="plan-goal-topic">of <b style="color:${planSec.color}">${planCur ? esc(planCur.name) : "all topics done 🎉"}</b> <span class="muted small">${esc(planSec.name)}</span></div>
+          <div class="plan-prog"><b>${planDone}</b> / ${planGoal} done today${Charts.bar(planPct, planSec.color)}</div>
+        </div>
+        <div class="plan-log">
+          <label class="lf">Topic<select class="input" id="planTopic">${planTopicOpts}</select></label>
+          <div class="plan-inputs">
+            <label class="lf">Questions done<input class="input sm" type="number" min="0" id="planQ" placeholder="0"></label>
+            <label class="lf">Correct<input class="input sm" type="number" min="0" id="planC" placeholder="0"></label>
+            <label class="lf">Minutes<input class="input sm" type="number" min="0" id="planMin" placeholder="0"></label>
+            <button class="btn primary" data-act="add-sess">Log</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -484,11 +499,14 @@
     if (a === "day-next") { UI.date = fmtKey(addDays(parseKey(UI.date), 1)); return render(); }
     if (a === "day-today") { UI.date = fmtKey(today()); return render(); }
 
+    // Today: switch plan sub-tab (Quant / Verbal / Data Insights)
+    if (a === "plan-tab") { UI.planTab = act.dataset.sec; return render(); }
+
     // Today: add / delete session
     if (a === "add-sess") {
-      const topicId = val("logTopic");
+      const topicId = val("planTopic");
       if (!topicId) return toast("Add a topic in Syllabus first");
-      const q = Math.round(num("logQ")), correct = Math.min(q, Math.round(num("logC"))), mins = Math.round(num("logMin"));
+      const q = Math.round(num("planQ")), correct = Math.min(q, Math.round(num("planC"))), mins = Math.round(num("planMin"));
       if (q <= 0) return toast("Enter how many questions you solved");
       const t = Score.topicById(topicId);
       Score.addSession(UI.date, { section: t.section, topicId, q, correct, mins });
@@ -547,7 +565,7 @@
   // Enter-to-submit in the session form
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
-    if (["logQ", "logC", "logMin"].includes(e.target.id)) { e.preventDefault(); document.querySelector('[data-act="add-sess"]')?.click(); }
+    if (["planQ", "planC", "planMin"].includes(e.target.id)) { e.preventDefault(); document.querySelector('[data-act="add-sess"]')?.click(); }
   });
 
   $("#importFile").addEventListener("change", (e) => { if (e.target.files[0]) importBackup(e.target.files[0]); e.target.value = ""; });
