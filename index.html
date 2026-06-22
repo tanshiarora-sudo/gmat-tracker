@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fakhir's GMAT Quest · Aug 30</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <div class="logo">
+        <svg viewBox="0 0 100 100" width="36" height="36" aria-label="Target">
+          <circle cx="50" cy="50" r="34" fill="none" stroke="#a45fd6" stroke-width="6"/>
+          <circle cx="50" cy="50" r="20" fill="none" stroke="#c98fe6" stroke-width="6"/>
+          <circle cx="50" cy="50" r="6.5" fill="#7d4bc4"/>
+        </svg>
+      </div>
+      <div class="title">
+        <h1>Fakhir's GMAT Quest</h1>
+        <p>GMAT Focus · exam 30 Aug 2026 · syllabus + mocks by 22 Aug.</p>
+      </div>
+      <div class="spacer"></div>
+      <div class="top-actions">
+        <button class="btn" id="backupBtn" data-act="backup" style="display:none">Backup</button>
+        <button class="btn" data-act="export">⬇ Export</button>
+        <button class="btn" data-act="import">⬆ Import</button>
+        <button class="btn danger" data-act="reset">Reset</button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="today">Today</button>
+      <button class="tab" data-tab="syllabus">Syllabus</button>
+      <button class="tab" data-tab="mocks">Mocks</button>
+      <button class="tab" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="reports">Reports</button>
+    </nav>
+
+    <main id="view"></main>
+
+    <footer class="footer">Fakhir's GMAT Quest · all data stays in your browser (localStorage) · Export regularly</footer>
+  </div>
+
+  <input type="file" id="importFile" accept="application/json" style="display:none">
+  <div id="toast"></div>
+
+  <script src="charts.js"></script>
+  <script src="core.js"></script>
+  <script src="backup.js"></script>
+  <script src="dragon.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
